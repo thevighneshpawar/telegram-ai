@@ -3,6 +3,9 @@ dotenv.config()
 
 import TelegramBot from 'node-telegram-bot-api'
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import fs from 'fs'
+
+const USERS_FILE = './users.json'
 
 // Load ENV variables
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN
@@ -23,6 +26,19 @@ const genAI = new GoogleGenerativeAI(GEMINI_API_KEY)
 
 // Track active users to prevent spam
 const activeUsers = new Set()
+
+// Save unique chat IDs
+function saveUser (chatId) {
+  let users = []
+  if (fs.existsSync(USERS_FILE)) {
+    users = JSON.parse(fs.readFileSync(USERS_FILE))
+  }
+
+  if (!users.includes(chatId)) {
+    users.push(chatId)
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2))
+  }
+}
 
 // Format output text from Gemini
 function formatText (text) {
@@ -74,6 +90,8 @@ bot.onText(/\/start/, async msg => {
     )
   }
 
+  saveUser(chatId) // ✅ Save user ID
+
   const welcomeMessage = `
 🤖 *Welcome to the Gemini AI Bot!*
 
@@ -105,6 +123,8 @@ bot.on('text', async msg => {
   if (activeUsers.has(chatId)) {
     return bot.sendMessage(chatId, '⏳ Please wait for the current response.')
   }
+
+  saveUser(chatId) // ✅ Save user ID if not already
 
   try {
     activeUsers.add(chatId)
@@ -138,7 +158,12 @@ bot.on('message', msg => {
 // Handle unknown commands
 bot.onText(/\/(.+)/, (msg, match) => {
   const chatId = msg.chat.id
-  const command = match[1]
+  const command = match[1].toLowerCase()
+
+  // Skip known/valid commands
+  const knownCommands = ['start'] // Add more later if needed
+  if (knownCommands.includes(command)) return
+
   bot.sendMessage(chatId, `❌ Unknown command: /${command}`)
 })
 
