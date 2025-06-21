@@ -50,7 +50,7 @@ function formatText (text) {
 
 // Escape Telegram MarkdownV2 reserved characters
 function escapeMarkdownV2 (text) {
-  return text.replace(/([_\*\[\]\(\)~`>#+=|{}.!\\\-])/g, '\\$1') // Escape all special chars
+  return text.replace(/([_\*\[\]\(\)~`>#+=|{}.!\\\-])/g, '\\$1')
 }
 
 // Check if user is a member of the required channel
@@ -90,7 +90,7 @@ bot.onText(/\/start/, async msg => {
     )
   }
 
-  saveUser(chatId) // ✅ Save user ID
+  saveUser(chatId)
 
   const welcomeMessage = `
 🤖 *Welcome to the Gemini AI Bot!*
@@ -124,7 +124,7 @@ bot.on('text', async msg => {
     return bot.sendMessage(chatId, '⏳ Please wait for the current response.')
   }
 
-  saveUser(chatId) // ✅ Save user ID if not already
+  saveUser(chatId)
 
   try {
     activeUsers.add(chatId)
@@ -133,10 +133,19 @@ bot.on('text', async msg => {
     const rawResponse = await getGeminiResponse(userMessage)
     const formatted = escapeMarkdownV2(formatText(rawResponse))
 
-    await bot.sendMessage(chatId, formatted, {
-      parse_mode: 'MarkdownV2',
-      disable_web_page_preview: true
-    })
+    const MAX_LENGTH = 4096
+    const messageChunks = []
+
+    for (let i = 0; i < formatted.length; i += MAX_LENGTH) {
+      messageChunks.push(formatted.substring(i, i + MAX_LENGTH))
+    }
+
+    for (const chunk of messageChunks) {
+      await bot.sendMessage(chatId, chunk, {
+        parse_mode: 'MarkdownV2',
+        disable_web_page_preview: true
+      })
+    }
   } catch (error) {
     console.error('Error responding to user:', error)
     await bot.sendMessage(
@@ -160,8 +169,7 @@ bot.onText(/\/(.+)/, (msg, match) => {
   const chatId = msg.chat.id
   const command = match[1].toLowerCase()
 
-  // Skip known/valid commands
-  const knownCommands = ['start'] // Add more later if needed
+  const knownCommands = ['start']
   if (knownCommands.includes(command)) return
 
   bot.sendMessage(chatId, `❌ Unknown command: /${command}`)
